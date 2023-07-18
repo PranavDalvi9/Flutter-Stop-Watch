@@ -1,5 +1,5 @@
 # Flutter-Stop-Watch 
-  
+  # Flutter Stopwatch Application is a simple mobile application designed to provide users with a stopwatch feature.
 # Features:-
 1. Created Flutter app.
 2. User can start and stop the stopwatch.
