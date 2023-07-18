@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:stop_watch_application/home_scree.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:stop_watch_application/screens/home_scree.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

@@ -1,6 +1,7 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:stop_watch_application/infrastructure/sharedprefs/shared_pref_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +17,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late Timer timer;
   bool isTimerStart = false;
   int sec = 0;
-  String textButton = "Play";
-  late int lapSec;
+  int lapSec = 0;
   int lapCount = 0;
-  List<String> lapHistory = [];
-  List<String> beforeHistory = [];
+  List lapHistory = []; // laps
+  List differenceHistory = []; //differnece
 
   void convertTime() {
     setState(() {
@@ -29,6 +29,16 @@ class _HomeScreenState extends State<HomeScreen> {
         hours = ((sec / (60 * 60)) % 60).floor().toString().padLeft(2, '0');
         minutes = ((sec / 60) % 60).floor().toString().padLeft(2, '0');
         seconds = (sec % 60).floor().toString().padLeft(2, '0');
+
+        Map<String, dynamic> data = {
+          'hours': hours,
+          'minutes': minutes,
+          'seconds': seconds,
+          'sec': sec,
+          'lapSec': lapSec,
+          'lapCount': lapCount,
+        };
+        SharedPrefHelper().setDataHistory(json.encode(data));
       }
     });
   }
@@ -37,42 +47,66 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (!isTimerStart) {
         isTimerStart = true;
-        // textButton = "Stop";
       } else {
         isTimerStart = false;
-        // textButton = "Play";
       }
     });
   }
 
-  void lapBefore() {
+  void differenceCalulate() {
     String temp;
     int temp2;
     if (lapCount == 0) {
-      temp = "+ $hours:$minutes:$seconds";
+      temp = "$hours:$minutes:$seconds";
     } else {
       temp2 = sec - lapSec;
       temp =
-          "+ ${((temp2 / (60 * 60)) % 60).floor().toString().padLeft(2, '0')}:${((temp2 / 60) % 60).floor().toString().padLeft(2, '0')}:${(temp2 % 60).floor().toString().padLeft(2, '0')}";
+          "${((temp2 / (60 * 60)) % 60).floor().toString().padLeft(2, '0')}:${((temp2 / 60) % 60).floor().toString().padLeft(2, '0')}:${(temp2 % 60).floor().toString().padLeft(2, '0')}";
     }
     lapSec = sec;
-    beforeHistory.add(temp);
+    differenceHistory.add(temp);
+    SharedPrefHelper().setDifferenceHistory(json.encode(differenceHistory));
   }
 
   void lap() {
     String temp;
     setState(() {
-      lapBefore();
-      temp = "${(lapCount).toString().padLeft(2, '0')}     ${beforeHistory[lapCount]}     $hours:$minutes:$seconds";
+      differenceCalulate();
+      temp = "$hours:$minutes:$seconds";
       lapHistory.add(temp);
       lapCount++;
+      SharedPrefHelper().setLapHistory(json.encode(lapHistory));
     });
+  }
+
+  void getDataFromSharedPref() async {
+    String getDataHistory = await SharedPrefHelper().getDataHistory;
+    String getDifferenceHistory = await SharedPrefHelper().getDifferenceHistory;
+    String getLapHistory = await SharedPrefHelper().getLapHistory;
+    if (getDataHistory.isNotEmpty) {
+      var getDataHistoryList = json.decode(getDataHistory);
+      List getDifferenceHistoryList = getDifferenceHistory.isNotEmpty ? json.decode(getDifferenceHistory) : [];
+      List getLapHistoryList = getLapHistory.isNotEmpty ? json.decode(getLapHistory) : [];
+
+      setState(() {
+        hours = getDataHistoryList['hours'];
+        minutes = getDataHistoryList['minutes'];
+        seconds = getDataHistoryList['seconds'];
+        sec = getDataHistoryList['sec'];
+        lapSec = getDataHistoryList['lapSec'];
+        lapCount = getDataHistoryList['lapCount'];
+        lapHistory = getLapHistoryList;
+        differenceHistory = getDifferenceHistoryList;
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
+
     timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => convertTime());
+    getDataFromSharedPref();
   }
 
   void reset() {
@@ -82,11 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
       seconds = "00";
       isTimerStart = false;
       sec = 0;
-      textButton = "Play";
       lapSec = 0;
       lapCount = 0;
       lapHistory = [];
-      beforeHistory = [];
+      differenceHistory = [];
+      SharedPrefHelper().clearPref();
     });
   }
 
@@ -205,27 +239,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (lapHistory.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Sr no"),
-                  Text("Started From            "),
-                  Text("Actual"),
-                ],
-              ),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Text("Sr no"),
+                Text("Actual"),
+                Text("Difference"),
+              ],
             ),
           Expanded(
-            child: ListView(
-                children: lapHistory.map((String value) {
-              return Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(8.0),
-                margin: const EdgeInsets.only(top: 5.0),
-                child: Text(value, style: const TextStyle(fontSize: 25, color: Colors.black54)),
-              );
-            }).toList()),
+            child: ListView.builder(
+              itemCount: lapHistory.length,
+              itemBuilder: (BuildContext context, int index) {
+                var value = lapHistory[index];
+                var calculatedDifference = differenceHistory[index];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Text((index + 1).toString().padLeft(2, '0'), style: const TextStyle(fontSize: 25, color: Colors.black54)),
+                    Text(value, style: const TextStyle(fontSize: 25, color: Colors.black54)),
+                    Text(calculatedDifference, style: const TextStyle(fontSize: 25, color: Colors.black54)),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
